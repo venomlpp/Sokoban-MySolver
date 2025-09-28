@@ -1,0 +1,19 @@
+[META]
+NAME = Facil6
+WIDTH = 12
+HEIGHT = 8
+ENERGY_LIMIT = 320
+MOVE_COST = 1
+PUSH_COST = 2
+
+[DOORS]
+
+[BOARD]
+############
+#  .    .  #
+#  ##  ##  #
+#  $    $  #
+#  #    #  #
+#  ##  ##  #
+#      @   #
+############
