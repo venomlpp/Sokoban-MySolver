@@ -4,35 +4,30 @@
 #include <iostream>
 using namespace std;
 
-
-/*este será el estado, una "snapshot" del juego Sokoban en un momento dado. Incluye
-Información sobre la posición del jugador, de las cajas, de la energía del jugador,
-y del árbol de estados para armar un camino.
-*/ 
-
 class State {
 public:
-    int x, y; //coordenadas del jugador en el tablero
-    int costo; //costo del estado (pendiente de definir)
-    int heuristic; //valor heurístico del estado
+    int x, y; // coordenadas del jugador: x = fila (row), y = columna (col)
+    int costo; // costo del camino (g)
+    int heuristic; // valor heurístico (h)
     int energia;
-    State* parent; //puntero al estado padre (para armar el camino)
+    int f_cost; // costo + heuristic
+    State* parent; //puntero al estado padre
     char lastMove; //último movimiento realizado para llegar a este estado
-    int *boxX; //arreglo dinámico con las coordenadas x de las cajas
-    int *boxY; //arreglo dinámico con las coordenadas y de las cajas
+    int *boxX; //arreglo dinámico con las coordenadas x (fila) de las cajas
+    int *boxY; //arreglo dinámico con las coordenadas y (col) de las cajas
     int numBoxes; //número de cajas en el juego
     int boxesLeft; //número de cajas que faltan por colocar en los objetivos
 
-    State(int x, int y, int *boxX, int *boxY, int numBoxes, int boxesLeft, int energia); //no incluye costo
-    State(const State &other); //constructor de copia
-    ~State(); //destructor
+    State(int x, int y, int *boxX, int *boxY, int numBoxes, int boxesLeft, int energia);
+    State(const State &other);
+    ~State();
 
     bool equals(const State *other) const;
     void printState() const;
     void printPath() const;
     State *clone();
-
-    int getHeuristic(State *state) const; //función heurística (pendiente de definir)
+    void canonicalize(); // garantiza orden de cajas (representación canónica)
+    int getHeuristic(State *state) const;
 };
 
 #endif

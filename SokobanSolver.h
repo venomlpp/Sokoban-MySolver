@@ -17,34 +17,33 @@ public:
 
     bool solve();
     bool isSolved() const;
-    //void printSolution() const;
-    //^aún no decido como printear
-
-    bool isValid(State* state) const; //si el movimiento es válido (no pasa por murallas, no pasa por cajas, etc)
+    bool isValid(State* state) const;
     
 private:
     Board* board;
     Heap* openList; // Estados por explorar
     HashTable* closedList; // Estados ya explorados
+
+    // OPERACIONES: dx = cambio fila, dy = cambio columna
     Operation operations[4] = {
-        Operation(0, -1), // Up
-        Operation(0, 1),  // Down
-        Operation(-1, 0), // Left
-        Operation(1, 0)   // Right
+        Operation(-1, 0), // Up
+        Operation( 1, 0), // Down
+        Operation( 0,-1), // Left
+        Operation( 0, 1)  // Right
     };
 
     // Métodos auxiliares
     bool isGoalState(State* state);
-    int getHeuristic(State* state);
-    int getAdvancedHeuristic(State* state); //heurística más avanzada
-    int getEvenBetterHeuristic(State* state); //heurística aún más avanzada
-    int getOptimizedMultiBoxHeuristic(State* state); //optimizada para +1 caja
-    int getActuallyEvenBetterHeuristic(State* state); //heurística aún más avanzada
-    bool isBoxPushable(State* state, int boxIndex) const;
-    bool boxOnGoal(State* state, int boxIndex) const;
-    int getDirectionAwareHeuristic(State* state); //heurística que considera dirección del jugador
-    int getAggressiveDirectionHeuristic(State* state); //heurística agresiva que considera dirección del jugador
-    int getFacil6NuclearHeuristic(State* state); //heurística fácil para niveles con 6 cajas
+    int getHeuristic(State* state); // ahora implementa Greedy matching + distancia a caja más cercana
+
+    // Detección de deadlocks simple
+    bool isSimpleDeadlock(State* state, int boxX, int boxY);
+    bool isCornerDeadlock(int x, int y);
+
+    // Utilidades
+    int abs(int x) { return (x < 0) ? -x : x; }
+    int min(int a, int b) { return (a < b) ? a : b; }
+    int max(int a, int b) { return (a > b) ? a : b; }
 };
 
 #endif //SOKOBANSOLVER_H

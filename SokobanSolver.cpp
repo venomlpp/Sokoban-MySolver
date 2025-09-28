@@ -1,14 +1,16 @@
-//Generamos un solver con el algoritmo A* con heurística
 #include "SokobanSolver.h"
 #define INT_MAX 2147483647
 
 SokobanSolver::SokobanSolver(State* initialState, Board* board) {
     this->board = board;
     openList = new Heap(1000);
-    closedList = new HashTable(1000, 0.75);
-    
-    // Calcular heurística inicial
+    closedList = new HashTable(10000, 0.75);
+
+    // Inicializar estado (asegurarse canonicalize ya hecho por constructor)
+    initialState->costo = 0;
     initialState->heuristic = getHeuristic(initialState);
+    initialState->f_cost = initialState->costo + initialState->heuristic;
+
     openList->push(initialState);
 }
 
@@ -20,7 +22,7 @@ SokobanSolver::~SokobanSolver() {
 bool SokobanSolver::solve() {
     int statesExplored = 0;
 
-    while (!openList->isEmpty() && statesExplored < 500000) {
+    while (!openList->isEmpty() && statesExplored < 2000000) {
         statesExplored++;
         State *currentState = openList->pop();
 
@@ -29,18 +31,31 @@ bool SokobanSolver::solve() {
                  << ", Open: " << openList->size
                  << ", Boxes left: " << currentState->boxesLeft 
                  << ", Heurística: " << currentState->heuristic << endl;
-            }
-        closedList->insert(currentState);
+        }
+
+        // Si es objetivo, print path
         if (isGoalState(currentState)) {
             cout << "SOLUCIÓN ENCONTRADA en " << statesExplored << " estados!" << endl;
             currentState->printPath();
+            cout << "✅ ¡Solución encontrada!" << endl;
             return true;
         }
+
+        // insertar en closed
+        closedList->insert(currentState);
+
+        // generar sucesores
         for (int i = 0; i < 4; i++) {
-            //crear nuevos estados con cada operación
+            // Primero asegurarse que la operación es ejecutable (evita pushes a paredes/otras cajas)
+            if (!operations[i].canExecute(currentState, board)) continue;
+
             State *newState = operations[i].execute(currentState); //"neighbor"
-            if (isValid(newState) && !closedList->contains(newState)) {
-                //calcular costo
+
+            if (newState == nullptr) continue;
+            if (!isValid(newState)) { delete newState; continue; }
+
+            if (!closedList->contains(newState)) {
+                // calcular costo y energía
                 if (operations[i].isPush(currentState)) {
                     newState->costo = currentState->costo + board->pushCost;
                     newState->energia = currentState->energia - board->pushCost;
@@ -53,18 +68,22 @@ bool SokobanSolver::solve() {
                 } else {
                     newState->costo = currentState->costo + board->moveCost;
                     newState->energia = currentState->energia - board->moveCost;
+                    newState->boxesLeft = currentState->boxesLeft;
                 }
-                //calcular heurística
-                newState->heuristic = getFacil6NuclearHeuristic(newState);
-                //después de calcular la heurística, lo añadimos a la lista abierta
+
+                // heurística robusta: greedy matching + distancia jugador->caja más cercana
+                newState->heuristic = getHeuristic(newState);
+                newState->f_cost = newState->costo + newState->heuristic;
+
                 openList->push(newState);
-            }
-            else {
-                delete newState; // liberar memoria si no es válido o ya explorado
+            } else {
+                delete newState;
             }
         }
     }
-    return false; // No se encontró solución
+
+    cout << "NO SE ENCONTRÓ SOLUCIÓN después de " << /*statesExplored*/ "muchos" << " estados" << endl;
+    return false;
 }
 
 bool SokobanSolver::isSolved() const {
@@ -74,19 +93,22 @@ bool SokobanSolver::isSolved() const {
 bool SokobanSolver::isValid(State* state) const {
     int x = state->x;
     int y = state->y;
-    //verificacion para jugador
-    if (board->isWall(x, y)) return false; //no puede ser una pared
-    if (!board->isValidPosition(x, y)) return false; //no puede salirse del tablero
-    //verificacion para cajas
+    // verificacion para jugador
+    if (!board->isValidPosition(x, y)) return false;
+    if (board->isWall(x, y)) return false;
+
+    // verificacion para cajas
     for (int i = 0; i < state->numBoxes; i++) {
+        if (!board->isValidPosition(state->boxX[i], state->boxY[i])) return false;
+        if (board->isWall(state->boxX[i], state->boxY[i])) return false;
         for (int j = i + 1; j < state->numBoxes; j++) {
             if (state->boxX[i] == state->boxX[j] && state->boxY[i] == state->boxY[j]) {
-                return false; //dos cajas en la misma posición
+                return false; // dos cajas en la misma posición
             }
         }
-        if (board->isWall(state->boxX[i], state->boxY[i])) return false; //caja en pared
-        }
-    //verificacion de energia
+    }
+
+    // verificacion de energia
     if (state->energia < 0) return false;
     return true;
 }
@@ -95,401 +117,114 @@ bool SokobanSolver::isGoalState(State* state) {
     return state->boxesLeft == 0;
 }
 
+// ---------------- Heurística: Greedy matching + distancia jugador->caja más cercana ----------------
 int SokobanSolver::getHeuristic(State* state) {
-    // Heurística: suma de distancias Manhattan de cada caja a su objetivo más cercano
+    if (state->boxesLeft == 0) return 0;
+
+    // Greedy matching: para cada caja asignar el goal más cercano no usado
     int totalDistance = 0;
-    for (int i = 0; i < state->numBoxes; i++) {
-        int boxX = state->boxX[i];
-        int boxY = state->boxY[i];
+    int gcount = board->numGoals;
+    int bcount = state->numBoxes;
+    bool usedGoal[64] = {false}; // asumir un tope razonable; si necesitas más, aumentar
+    for (int i = 0; i < bcount; i++) {
+        int bx = state->boxX[i], by = state->boxY[i];
+        // si caja ya está en goal, no sumar
+        bool onGoal = false;
+        for (int j = 0; j < gcount; j++) {
+            if (bx == board->goalX[j] && by == board->goalY[j]) {
+                onGoal = true;
+                break;
+            }
+        }
+        if (onGoal) continue;
+
         int minDist = INT_MAX;
-        for (int j = 0; j < board->numGoals; j++) {
-            int goalX = board->goalX[j];
-            int goalY = board->goalY[j];
-            int dist = abs(boxX - goalX) + abs(boxY - goalY);
+        int bestGoal = -1;
+        for (int j = 0; j < gcount; j++) {
+            if (usedGoal[j]) continue;
+            int dist = abs(bx - board->goalX[j]) + abs(by - board->goalY[j]);
             if (dist < minDist) {
                 minDist = dist;
+                bestGoal = j;
             }
         }
-        totalDistance += minDist;
-    }
-    return totalDistance;
-}
-
-bool SokobanSolver::isBoxPushable(State* state, int boxIndex) const {
-    int boxX = state->boxX[boxIndex];
-    int boxY = state->boxY[boxIndex];
-
-    // Verificar si la caja está bloqueada por paredes o bordes del tablero
-    bool blockedHorizontally = (board->isWall(boxX, boxY - 1) && board->isWall(boxX, boxY + 1));
-    bool blockedVertically = (board->isWall(boxX - 1, boxY) && board->isWall(boxX + 1, boxY));
-
-    if (blockedHorizontally && blockedVertically) {
-        return false; // La caja está bloqueada y no se puede empujar
-    }
-    return true; // La caja es empujable
-}
-
-bool SokobanSolver::boxOnGoal(State* state, int boxIndex) const {
-    int boxX = state->boxX[boxIndex];
-    int boxY = state->boxY[boxIndex];
-    return board->isGoal(boxX, boxY);
-}
-
-int SokobanSolver::getAdvancedHeuristic(State* state) {
-    // Heurística avanzada: combina la distancia Manhattan con el número de cajas no colocadas
-    int manhattanDistance = getHeuristic(state);
-    int boxesNotOnGoal = state->boxesLeft;
-    return manhattanDistance + (boxesNotOnGoal * 10); // Peso adicional por cajas no colocadas
-}
-
-int SokobanSolver::getEvenBetterHeuristic(State* state) {
-    int total = 0;
-    
-    for (int i = 0; i < state->numBoxes; i++) {
-        // Verificar si la caja ya está en objetivo
-        bool onGoal = false;
-        for (int j = 0; j < board->numGoals; j++) {
-            if (state->boxX[i] == board->goalX[j] && state->boxY[i] == board->goalY[j]) {
-                onGoal = true;
-                break;
-            }
-        }
-        
-        if (!onGoal) {
-            int minBoxToGoal = INT_MAX;
-            // Encontrar objetivo más cercano para esta caja
-            for (int j = 0; j < board->numGoals; j++) {
-                int dist = abs(state->boxX[i] - board->goalX[j]) + 
-                           abs(state->boxY[i] - board->goalY[j]);
-                if (dist < minBoxToGoal) {
-                    minBoxToGoal = dist;
-                }
-            }
-            
-            // Distancia del jugador a la caja
-            int playerToBox = abs(state->x - state->boxX[i]) + 
-                              abs(state->y - state->boxY[i]);
-            
-            // Combinar: jugador debe llegar a la caja + caja a objetivo
-            total += minBoxToGoal + playerToBox;
-        }
-    }
-    return total;
-}
-
-int SokobanSolver::getOptimizedMultiBoxHeuristic(State* state) {
-    if (state->boxesLeft == 0) return 0;
-    int total = 0;
-    int minPlayerToBox = INT_MAX;
-    
-    // 1. Calcular distancia jugador a caja más cercana que necesita moverse
-    for (int i = 0; i < state->numBoxes; i++) {
-        bool onGoal = false;
-        for (int j = 0; j < board->numGoals; j++) {
-            if (state->boxX[i] == board->goalX[j] && state->boxY[i] == board->goalY[j]) {
-                onGoal = true;
-                break;
-            }
-        }
-        if (!onGoal) {
-            int playerToBox = abs(state->x - state->boxX[i]) + 
-                              abs(state->y - state->boxY[i]);
-            if (playerToBox < minPlayerToBox) {
-                minPlayerToBox = playerToBox;
-            }
-        }
-    }
-    // 2. Calcular distancia mínima de cada caja a objetivo libre
-    for (int i = 0; i < state->numBoxes; i++) {
-        bool onGoal = false;
-        for (int j = 0; j < board->numGoals; j++) {
-            if (state->boxX[i] == board->goalX[j] && state->boxY[i] == board->goalY[j]) {
-                onGoal = true;
-                break;
-            }
-        }
-        if (!onGoal) {
-            int minBoxToGoal = INT_MAX;
-            for (int j = 0; j < board->numGoals; j++) {
-                // Verificar si el objetivo está libre
-                bool goalFree = true;
-                for (int k = 0; k < state->numBoxes; k++) {
-                    if (k != i && state->boxX[k] == board->goalX[j] && 
-                        state->boxY[k] == board->goalY[j]) {
-                        goalFree = false;
-                        break;
-                    }
-                }
-                if (goalFree) {
-                    int dist = abs(state->boxX[i] - board->goalX[j]) + 
-                               abs(state->boxY[i] - board->goalY[j]);
-                    if (dist < minBoxToGoal) minBoxToGoal = dist;
-                }
-            }
-            if (minBoxToGoal == INT_MAX) minBoxToGoal = 0; // Todos objetivos ocupados
-            total += minBoxToGoal;
-        }
-    }
-    
-    // 3. Combinar con peso estratégico
-    if (minPlayerToBox == INT_MAX) minPlayerToBox = 0; // Todas las cajas en objetivo
-    
-    // Ponderación: priorizar acercarse a cajas sobre moverlas (2:1 ratio)
-    return minPlayerToBox * 2 + total;
-}
-
-int SokobanSolver::getDirectionAwareHeuristic(State* state) {
-    if (state->boxesLeft == 0) return 0;
-    
-    int total = 0;
-    int minPlayerToBox = INT_MAX;
-    
-    for (int i = 0; i < state->numBoxes; i++) {
-        bool onGoal = false;
-        for (int j = 0; j < board->numGoals; j++) {
-            if (state->boxX[i] == board->goalX[j] && state->boxY[i] == board->goalY[j]) {
-                onGoal = true;
-                break;
-            }
-        }
-        
-        if (!onGoal) {
-            // 1. Distancia caja-objetivo más cercano
-            int minBoxToGoal = INT_MAX;
-            int targetGoalX = -1, targetGoalY = -1;
-            
-            for (int j = 0; j < board->numGoals; j++) {
-                int dist = abs(state->boxX[i] - board->goalX[j]) + 
-                           abs(state->boxY[i] - board->goalY[j]);
-                if (dist < minBoxToGoal) {
-                    minBoxToGoal = dist;
-                    targetGoalX = board->goalX[j];
-                    targetGoalY = board->goalY[j];
-                }
-            }
-            
-            // 2. PENALIZACIÓN CRÍTICA: Movimientos laterales cuando se necesita movimiento vertical
-            int directionalPenalty = 0;
-            
-            // Si el objetivo está ARRIBA de la caja, penalizar movimientos horizontales
-            if (targetGoalX < state->boxX[i]) { // Objetivo arriba
-                // Penalizar si la caja se mueve horizontalmente lejos del camino vertical al objetivo
-                int horizontalDeviation = abs(state->boxY[i] - targetGoalY);
-                directionalPenalty += horizontalDeviation * 5; // Fuerte penalización
-                
-                // Penalizar adicionalmente si la caja está en la misma columna que el objetivo pero no sube
-                if (state->boxY[i] == targetGoalY) {
-                    // Debería estar subiendo, no moviéndose lateralmente
-                    int verticalDistance = state->boxX[i] - targetGoalX;
-                    directionalPenalty += verticalDistance * 3;
-                }
-            }
-            
-            // 3. Distancia jugador-caja
-            int playerToBox = abs(state->x - state->boxX[i]) + 
-                              abs(state->y - state->boxY[i]);
-            
-            if (playerToBox < minPlayerToBox) {
-                minPlayerToBox = playerToBox;
-            }
-            
-            total += (minBoxToGoal * 3) + directionalPenalty;
-        }
-    }
-    
-    // 4. PENALIZACIÓN GLOBAL: Evitar que las cajas se alejen de la fila de objetivos
-    int globalPenalty = 0;
-    for (int i = 0; i < state->numBoxes; i++) {
-        // Las cajas deberían estar en las filas 1-2-3 (cerca de objetivos), no en la fila 3+ abajo
-        if (state->boxX[i] > 3) { // Demasiado abajo
-            globalPenalty += (state->boxX[i] - 3) * 10;
-        }
-        
-        // Penalizar cajas que están en columnas incorrectas (lejos de los objetivos 3 y 8)
-        if (state->boxY[i] < 2 || state->boxY[i] > 9) { // Muy a los extremos
-            globalPenalty += 5;
-        }
-    }
-    
-    if (minPlayerToBox == INT_MAX) minPlayerToBox = 0;
-    
-    return total + minPlayerToBox * 2 + globalPenalty;
-}
-int SokobanSolver::getAggressiveDirectionHeuristic(State* state) {
-    if (state->boxesLeft == 0) return 0;
-    
-    int total = 0;
-    int minPlayerToBox = INT_MAX;
-    
-    for (int i = 0; i < state->numBoxes; i++) {
-        bool onGoal = false;
-        for (int j = 0; j < board->numGoals; j++) {
-            if (state->boxX[i] == board->goalX[j] && state->boxY[i] == board->goalY[j]) {
-                onGoal = true;
-                break;
-            }
-        }
-        
-        if (!onGoal) {
-            // 1. Distancia caja-objetivo más cercano
-            int minBoxToGoal = INT_MAX;
-            int targetGoalX = -1, targetGoalY = -1;
-            
-            for (int j = 0; j < board->numGoals; j++) {
-                int dist = abs(state->boxX[i] - board->goalX[j]) + 
-                           abs(state->boxY[i] - board->goalY[j]);
-                if (dist < minBoxToGoal) {
-                    minBoxToGoal = dist;
-                    targetGoalX = board->goalX[j];
-                    targetGoalY = board->goalY[j];
-                }
-            }
-            
-            // 2. PENALIZACIÓN HIPER-AGRESIVA: Movimientos laterales vs verticales
-            int directionalPenalty = 0;
-            
-            // CRÍTICO: Si el objetivo está ARRIBA, penalizar MUCHO los movimientos horizontales
-            if (targetGoalX < state->boxX[i]) { // Objetivo arriba
-                // PENALIZACIÓN MASIVA por desviación horizontal
-                int horizontalDeviation = abs(state->boxY[i] - targetGoalY);
-                directionalPenalty += horizontalDeviation * 25; // Aumentado drasticamente
-                
-                // PENALIZACIÓN EXTRA si está en columna incorrecta
-                if (state->boxY[i] != targetGoalY) {
-                    directionalPenalty += 30;
-                }
-                
-                // BONIFICACIÓN por progreso vertical
-                int verticalProgress = (state->boxX[i] - targetGoalX);
-                directionalPenalty -= verticalProgress * 8; // Recompensar subir
-                
-                // PENALIZACIÓN EXTRA por estar en filas bajas
-                if (state->boxX[i] >= 3) {
-                    directionalPenalty += (state->boxX[i] - 2) * 20;
-                }
-            }
-            
-            // 3. Distancia jugador-caja con peso estratégico
-            int playerToBox = abs(state->x - state->boxX[i]) + 
-                              abs(state->y - state->boxY[i]);
-            
-            // Peso mayor si la caja necesita moverse verticalmente
-            if (targetGoalX < state->boxX[i]) {
-                playerToBox = playerToBox * 2; // Doble importancia
-            }
-            
-            if (playerToBox < minPlayerToBox) {
-                minPlayerToBox = playerToBox;
-            }
-            
-            total += (minBoxToGoal * 4) + directionalPenalty;
+        if (bestGoal != -1) {
+            usedGoal[bestGoal] = true;
+            totalDistance += minDist;
         } else {
-            // Caja en objetivo - gran recompensa
-            total -= 50;
+            // si no hay goal libre (caso raro), usar min overall
+            int fallback = INT_MAX;
+            for (int j = 0; j < gcount; j++) {
+                int dist = abs(bx - board->goalX[j]) + abs(by - board->goalY[j]);
+                if (dist < fallback) fallback = dist;
+            }
+            if (fallback < INT_MAX) totalDistance += fallback;
         }
     }
-    
-    // 4. PENALIZACIÓN GLOBAL MEJORADA
-    int globalPenalty = 0;
-    
-    // Penalizar MUCHO cajas en filas bajas
-    for (int i = 0; i < state->numBoxes; i++) {
-        if (state->boxX[i] > 2) { // Filas 3+ 
-            globalPenalty += (state->boxX[i] - 1) * 25; // Penalización masiva
-        }
-        
-        // Penalizar cajas en posiciones extremas
-        if (state->boxY[i] < 2 || state->boxY[i] > 9) {
-            globalPenalty += 15;
-        }
-    }
-    
-    // 5. BONIFICACIÓN por cajas cerca de objetivos verticalmente
-    for (int i = 0; i < state->numBoxes; i++) {
+
+    // Distancia jugador -> caja más cercana (entre cajas que NO estén en goal)
+    int minPlayerToBox = INT_MAX;
+    for (int i = 0; i < bcount; i++) {
+        int bx = state->boxX[i], by = state->boxY[i];
         bool onGoal = false;
-        for (int j = 0; j < board->numGoals; j++) {
-            if (state->boxX[i] == board->goalX[j] && state->boxY[i] == board->goalY[j]) {
-                onGoal = true;
-                break;
-            }
-        }
-        
-        if (!onGoal) {
-            // Bonificar si está en fila 1 o 2 (cerca verticalmente)
-            if (state->boxX[i] <= 2) {
-                globalPenalty -= 20; // Gran recompensa
-            }
-            
-            // Bonificar si está en columna correcta
-            for (int j = 0; j < board->numGoals; j++) {
-                if (state->boxY[i] == board->goalY[j]) {
-                    globalPenalty -= 10; // Recompensa por columna correcta
-                    break;
-                }
-            }
-        }
+        for (int j = 0; j < gcount; j++) if (bx == board->goalX[j] && by == board->goalY[j]) { onGoal = true; break; }
+        if (onGoal) continue;
+        int pd = abs(state->x - bx) + abs(state->y - by);
+        if (pd < minPlayerToBox) minPlayerToBox = pd;
     }
-    
     if (minPlayerToBox == INT_MAX) minPlayerToBox = 0;
-    
-    return total + minPlayerToBox * 3 + globalPenalty;
+
+    // combinación: matching total + (playerToBox) con peso menor
+    return totalDistance + (minPlayerToBox);
 }
 
-int SokobanSolver::getFacil6NuclearHeuristic(State* state) {
-    if (state->boxesLeft == 0) return -1000; // Gran recompensa por solución
-    
-    int total = 0;
-    
-    // Objetivos específicos de Facil-6
-    const int goal1X = 1, goal1Y = 3;
-    const int goal2X = 1, goal2Y = 8;
-    
-    // Asignación óptima basada en distancia
-    int dist1 = abs(state->boxX[0] - goal1X) + abs(state->boxY[0] - goal1Y) +
-                abs(state->boxX[1] - goal2X) + abs(state->boxY[1] - goal2Y);
-    
-    int dist2 = abs(state->boxX[0] - goal2X) + abs(state->boxY[0] - goal2Y) +
-                abs(state->boxX[1] - goal1X) + abs(state->boxY[1] - goal1Y);
-    
-    int minDist = min(dist1, dist2);
-    
-    // PENALIZACIÓN HIPER-AGRESIVA POR MOVIMIENTOS HORIZONTALES
-    int horizontalPenalty = 0;
-    
-    for (int i = 0; i < state->numBoxes; i++) {
-        int targetGoalX = (minDist == dist1 && i == 0) ? goal1X : 
-                        (minDist == dist1 && i == 1) ? goal2X :
-                        (minDist == dist2 && i == 0) ? goal2X : goal1X;
-        
-        int targetGoalY = (minDist == dist1 && i == 0) ? goal1Y : 
-                        (minDist == dist1 && i == 1) ? goal2Y :
-                        (minDist == dist2 && i == 0) ? goal2Y : goal1Y;
-        
-        // PENALIZACIÓN MASIVA por cualquier movimiento horizontal
-        int horizontalDeviation = abs(state->boxY[i] - targetGoalY);
-        horizontalPenalty += horizontalDeviation * 40; // Penalización extrema
-        
-        // PENALIZACIÓN por no estar subiendo
-        if (state->boxX[i] > targetGoalX) {
-            int verticalStagnation = state->boxX[i] - targetGoalX;
-            horizontalPenalty += verticalStagnation * 20;
-        }
-        
-        // BONIFICACIÓN MASIVA por progreso vertical
-        if (state->boxX[i] < 3) { // En filas 0,1,2
-            horizontalPenalty -= (3 - state->boxX[i]) * 25;
-        }
-        
-        // BONIFICACIÓN por estar en columna objetivo
-        if (state->boxY[i] == targetGoalY) {
-            horizontalPenalty -= 20;
+// ---------------- Deadlock detection corregida ----------------
+bool SokobanSolver::isSimpleDeadlock(State* state, int boxX, int boxY) {
+    // Si la caja está en goal, no es deadlock
+    for (int j = 0; j < board->numGoals; j++) {
+        if (boxX == board->goalX[j] && boxY == board->goalY[j]) return false;
+    }
+
+    // Deadlock en esquina (dos paredes adyacentes)
+    if (isCornerDeadlock(boxX, boxY)) return true;
+
+    // Deadlock por paredes en direcciones opuestas o cajas bloqueando
+    int walls = 0;
+    int adjacentBoxes = 0;
+
+    // vecinos: (fila,col) -> up=(x-1,y), right=(x,y+1), down=(x+1,y), left=(x,y-1)
+    int dx[4] = {-1, 0, 1, 0};
+    int dy[4] = {0, 1, 0, -1};
+
+    for (int d = 0; d < 4; d++) {
+        int nx = boxX + dx[d];
+        int ny = boxY + dy[d];
+        if (!board->isValidPosition(nx, ny) || board->isWall(nx, ny)) {
+            walls++;
+        } else {
+            // mirar si hay caja
+            for (int i = 0; i < state->numBoxes; i++) {
+                if (state->boxX[i] == nx && state->boxY[i] == ny) { adjacentBoxes++; break; }
+            }
         }
     }
-    
-    // Distancia jugador a caja más cercana
-    int playerToBox1 = abs(state->x - state->boxX[0]) + abs(state->y - state->boxY[0]);
-    int playerToBox2 = abs(state->x - state->boxX[1]) + abs(state->y - state->boxY[1]);
-    int minPlayerToBox = min(playerToBox1, playerToBox2);
-    
-    return minDist * 5 + horizontalPenalty + minPlayerToBox * 2;
+
+    // Si hay 2 paredes en direcciones opuestas horizontally or vertically -> deadlock
+    bool horizontalBlock = ( (board->isWall(boxX, boxY-1) || !board->isValidPosition(boxX, boxY-1)) &&
+                             (board->isWall(boxX, boxY+1) || !board->isValidPosition(boxX, boxY+1)) );
+    bool verticalBlock = ( (board->isWall(boxX-1, boxY) || !board->isValidPosition(boxX-1, boxY)) &&
+                           (board->isWall(boxX+1, boxY) || !board->isValidPosition(boxX+1, boxY)) );
+    if (horizontalBlock || verticalBlock) return true;
+
+    return false;
+}
+
+bool SokobanSolver::isCornerDeadlock(int x, int y) {
+    // x = fila, y = col
+    bool wallLeft  = board->isWall(x, y-1) || !board->isValidPosition(x, y-1);
+    bool wallRight = board->isWall(x, y+1) || !board->isValidPosition(x, y+1);
+    bool wallUp    = board->isWall(x-1, y) || !board->isValidPosition(x-1, y);
+    bool wallDown  = board->isWall(x+1, y) || !board->isValidPosition(x+1, y);
+
+    return (wallLeft && wallUp) || (wallLeft && wallDown) || (wallRight && wallUp) || (wallRight && wallDown);
 }

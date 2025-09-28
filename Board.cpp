@@ -92,16 +92,19 @@ void Board::parseBoardSection(string line) {
         grid = new char*[height];
         for (int i = 0; i < height; i++) {
             grid[i] = new char[width];
+            for (int j = 0; j < width; j++) grid[i][j] = ' ';
         }
     }
 
     if (currentRow < height) {
-        for (int j = 0; j < width && j < line.length(); j++) {
-            grid[currentRow][j] = line[j];
+        for (int j = 0; j < width; j++) {
+            if (j < (int)line.length()) grid[currentRow][j] = line[j];
+            else grid[currentRow][j] = ' ';
         }
         currentRow++;
     }
 }
+
 
 void Board::countGoalsAndBoxes() {
     // Primera pasada: contar objetivos y cajas

@@ -17,42 +17,45 @@ HashTable::~HashTable() {
 }
 
 int HashTable::hashFunction(State* state) {
-    // Función hash más robusta y mejor distribuida
-    const int prime = 5381;
-    long long hash = prime;
-    
-    // Hash de la posición del jugador
-    hash = hash * 33 + state->x;
-    hash = hash * 33 + state->y;
-    hash = hash * 33 + state->energia;
-    
-    // Hash de las cajas (ordenar para que sea independiente del orden)
+    // Usar mezcla robusta (basada en 64-bit mix)
+    unsigned long long h = 1469598103934665603ULL; // offset
+    auto mix = [&](int v) {
+        unsigned long long x = (unsigned long long)(v + 0x9e3779b97f4a7c15ULL);
+        h ^= x + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+    };
+
+    mix(state->x);
+    mix(state->y);
+    mix(state->numBoxes);
+    mix(state->boxesLeft);
+    mix(state->energia);
+
+    // Suponemos que state->canonicalize() ya fue llamado
     for (int i = 0; i < state->numBoxes; i++) {
-        hash = hash * 33 + state->boxX[i];
-        hash = hash * 33 + state->boxY[i];
+        mix(state->boxX[i]);
+        mix(state->boxY[i]);
     }
-    
-    // Mezcla final
-    hash = hash ^ (hash >> 16);
-    return abs(static_cast<int>(hash)) % capacity;
+
+    int idx = (int)((h & 0x7fffffffffffffffULL) % (unsigned long long)capacity);
+    return idx;
 }
 
 void HashTable::rehash() {
     int oldCapacity = capacity;
     capacity = capacity * 2 + 1;
     HashNode** newTable = new HashNode*[capacity]();
-    
+
     int newMaxChainLength = 0;
-    
+
     for (int i = 0; i < oldCapacity; i++) {
         HashNode* current = table[i];
         while (current != nullptr) {
             HashNode* next = current->next;
-            
+
             int newIndex = hashFunction(current->state);
             current->next = newTable[newIndex];
             newTable[newIndex] = current;
-            
+
             int chainLength = 0;
             HashNode* temp = newTable[newIndex];
             while (temp != nullptr) {
@@ -62,38 +65,38 @@ void HashTable::rehash() {
             if (chainLength > newMaxChainLength) {
                 newMaxChainLength = chainLength;
             }
-            
+
             current = next;
         }
     }
-    
+
     delete[] table;
     table = newTable;
     maxChainLength = newMaxChainLength;
     rehashCount++;
-    
+
     cout << "Rehashing #" << rehashCount << " realizado. Nueva capacidad: " << capacity << endl;
 }
 
 void HashTable::insert(State* state) {
     totalInsertions++;
-    
+
     double currentLoadFactor = (double)size / capacity;
     if (currentLoadFactor >= loadFactorThreshold) {
         rehash();
     }
-    
+
     int index = hashFunction(state);
     HashNode* newNode = new HashNode(state);
-    
+
     if (table[index] != nullptr) {
         collisionCount++;
     }
-    
+
     newNode->next = table[index];
     table[index] = newNode;
     size++;
-    
+
     int chainLength = 0;
     HashNode* current = table[index];
     while (current != nullptr) {
@@ -108,7 +111,7 @@ void HashTable::insert(State* state) {
 bool HashTable::contains(State* state) {
     int index = hashFunction(state);
     HashNode* current = table[index];
-    
+
     while (current != nullptr) {
         if (current->state->equals(state)) {
             return true;
@@ -144,13 +147,13 @@ void HashTable::printStats() const {
 
 void HashTable::printDetailedStats() const {
     printStats();
-    
+
     int emptyBuckets = 0;
     int singleItemBuckets = 0;
     int longChains = 0; // Cadenas con más de 5 elementos
     double avgChainLength = 0;
     int totalNonEmptyBuckets = 0;
-    
+
     for (int i = 0; i < capacity; i++) {
         int chainLength = 0;
         HashNode* current = table[i];
@@ -158,26 +161,26 @@ void HashTable::printDetailedStats() const {
             chainLength++;
             current = current->next;
         }
-        
+
         avgChainLength += chainLength;
-        
+
         if (chainLength == 0) {
             emptyBuckets++;
         } else if (chainLength == 1) {
             singleItemBuckets++;
         }
-        
+
         if (chainLength > 5) {
             longChains++;
         }
-        
+
         if (chainLength > 0) {
             totalNonEmptyBuckets++;
         }
     }
-    
+
     avgChainLength /= capacity;
-    
+
     cout << "\n=== Estadísticas Detalladas ===" << endl;
     cout << "Buckets vacíos: " << emptyBuckets << " (" << (emptyBuckets * 100.0 / capacity) << "%)" << endl;
     cout << "Buckets con 1 elemento: " << singleItemBuckets << " (" << (singleItemBuckets * 100.0 / capacity) << "%)" << endl;
@@ -186,5 +189,6 @@ void HashTable::printDetailedStats() const {
     if (totalNonEmptyBuckets > 0) {
         cout << "Longitud promedio de cadena no vacía: " << (double)size / totalNonEmptyBuckets << endl;
     }
-    cout << "Eficiencia de la función hash: " << (singleItemBuckets * 100.0 / size) << "% de elementos en buckets únicos" << endl;
+    if (size > 0)
+        cout << "Eficiencia de la función hash: " << (singleItemBuckets * 100.0 / size) << "% de elementos en buckets únicos" << endl;
 }
