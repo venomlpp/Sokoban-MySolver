@@ -159,14 +159,6 @@ void Board::printInfo() const {
     cout << "Energía inicial: " << energyLimit << endl;  // Ahora mostrará el valor correcto
     cout << "Costos - Movimiento: " << moveCost << ", Empuje: " << pushCost << endl;
     cout << "Objetivos: " << numGoals << ", Cajas: " << numBoxes << endl;
-    
-    cout << "\nGrid:" << endl;
-    for (int i = 0; i < height; i++) {
-        for (int j = 0; j < width; j++) {
-            cout << grid[i][j];
-        }
-        cout << endl;
-    }
 }
 
 void Board::printBoard() const {

@@ -17,8 +17,8 @@ HashTable::~HashTable() {
 }
 
 int HashTable::hashFunction(State* state) {
-    // Usar mezcla robusta (basada en 64-bit mix)
-    unsigned long long h = 1469598103934665603ULL; // offset
+    // Mezcla tipo splitmix-ish pero simple; NO incluir energia ni costos.
+    unsigned long long h = 1469598103934665603ULL; // base
     auto mix = [&](int v) {
         unsigned long long x = (unsigned long long)(v + 0x9e3779b97f4a7c15ULL);
         h ^= x + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
@@ -27,11 +27,9 @@ int HashTable::hashFunction(State* state) {
     mix(state->x);
     mix(state->y);
     mix(state->numBoxes);
-    mix(state->boxesLeft);
-    mix(state->energia);
 
-    // Suponemos que state->canonicalize() ya fue llamado
-    for (int i = 0; i < state->numBoxes; i++) {
+    // Asumimos que state->boxX/Y están canonicalizadas (ordenadas).
+    for (int i = 0; i < state->numBoxes; ++i) {
         mix(state->boxX[i]);
         mix(state->boxY[i]);
     }
@@ -39,6 +37,8 @@ int HashTable::hashFunction(State* state) {
     int idx = (int)((h & 0x7fffffffffffffffULL) % (unsigned long long)capacity);
     return idx;
 }
+
+
 
 void HashTable::rehash() {
     int oldCapacity = capacity;

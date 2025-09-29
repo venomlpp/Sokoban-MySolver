@@ -1,5 +1,5 @@
 #include "State.h"
-#include <algorithm>
+#include <cstring>
 
 State::State(int x, int y, int *boxX, int *boxY, int numBoxes, int boxesLeft, int energia) {
     this->x = x;
@@ -32,7 +32,7 @@ State::State(const State &other) {
     costo = other.costo;
     heuristic = other.heuristic;
     energia = other.energia;
-    parent = nullptr; // no copiar parent por seguridad
+    parent = nullptr; // no copiar parent
     lastMove = other.lastMove;
     numBoxes = other.numBoxes;
     boxesLeft = other.boxesLeft;
@@ -45,20 +45,33 @@ State::State(const State &other) {
     }
 }
 
-bool State::equals(const State* other) const {
-    if (x != other->x || y != other->y || 
-        numBoxes != other->numBoxes || boxesLeft != other->boxesLeft || energia != other->energia) {
-        return false;
+State *State::clone() {
+    return new State(*this);
+}
+
+void State::canonicalize() {
+    for (int i = 0; i < numBoxes; ++i) {
+        int best = i;
+        for (int j = i + 1; j < numBoxes; ++j) {
+            if (boxX[j] < boxX[best] || (boxX[j] == boxX[best] && boxY[j] < boxY[best])) {
+                best = j;
+            }
+        }
+        if (best != i) {
+            int tx = boxX[i], ty = boxY[i];
+            boxX[i] = boxX[best]; boxY[i] = boxY[best];
+            boxX[best] = tx; boxY[best] = ty;
+        }
     }
-    // Suponiendo canonicalize() fue llamado: comparar arrays directamente
-    for (int i = 0; i < numBoxes; i++) {
+}
+
+bool State::equals(const State* other) const {
+    if (x != other->x || y != other->y) return false;
+    if (numBoxes != other->numBoxes) return false;
+    for (int i = 0; i < numBoxes; ++i) {
         if (boxX[i] != other->boxX[i] || boxY[i] != other->boxY[i]) return false;
     }
     return true;
-}
-
-State *State::clone() {
-    return new State(*this);
 }
 
 void State::printState() const {
@@ -75,22 +88,9 @@ void State::printState() const {
 
 void State::printPath() const {
     if (parent != nullptr) parent->printPath();
-    if (lastMove != ' ') cout << lastMove << " ";
-}
-
-void State::canonicalize() {
-    // Orden simple O(n^2) por (x,y) (suficiente para pocos boxes)
-    for (int i = 0; i < numBoxes - 1; ++i) {
-        for (int j = i + 1; j < numBoxes; ++j) {
-            if (boxX[i] > boxX[j] || (boxX[i] == boxX[j] && boxY[i] > boxY[j])) {
-                std::swap(boxX[i], boxX[j]);
-                std::swap(boxY[i], boxY[j]);
-            }
-        }
-    }
+    if (lastMove != ' ') cout << lastMove;
 }
 
 int State::getHeuristic(State *state) const {
-    // placeholder: implementación externa en SokobanSolver
     return 0;
 }

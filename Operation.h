@@ -6,18 +6,17 @@
 
 class Operation {
 private:
-    int dx, dy; // dx = cambio en fila (row), dy = cambio en columna (col)
+    int dx, dy; // dx = cambio en fila, dy = cambio en columna
 public:
     Operation(int dx, int dy);
-    State *execute(State *s) const; // clona y aplica el movimiento (no verifica validez)
+    State *execute(State *s) const;          // clona y aplica el movimiento (asume canExecute ya verificado)
     char getMoveChar() const;
-    bool isPush(const State *s) const;
+    bool isPush(const State *s) const;       // si el movimiento empuja una caja
     bool isPushedToGoal(const State *s, const Board *board) const;
     bool isPushedOutOfGoal(const State *s, const Board *board) const;
 
-    // NUEVO: verifica si la operación es ejecutable (movimiento válido o empuje válido)
+    // Nuevo: verifica si la operacion es ejecutable (no sale del tablero, no empuja muro, no empuja caja sobre otra caja)
     bool canExecute(const State *s, const Board *board) const;
-    bool canPush(const State *s, const Board *board) const;
 };
 
 #endif

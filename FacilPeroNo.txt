@@ -1,0 +1,27 @@
+[META]
+NAME = FACIL1
+WIDTH = 8
+HEIGHT = 6
+ENERGY_LIMIT = 200
+MOVE_COST = 1
+PUSH_COST = 1
+
+[DOORS]
+
+[BOARD]
+  ##### 
+###   # 
+#.@$  # 
+### $.# 
+#.##$ # 
+# # . ##
+#$  $$.#
+#   .  #
+########
+
+
+Te voy a enviar el solver actual, quiero un par de cosas pq se que se podria mejorar
+
+1) Ver si hay alguna forma de implementar otra heurística mejor SIN CAMBIAR LA FORMA EN QUE SE CALCULA EQUALS NI EL HASHFUNCTION
+2) Ver si se puede mejorar/incluir más poda ahora que sabemos que el problema no era necesariamente eso
+3) Las dos de arriba eran más opcionales, esta siguiente es obligatoria; implementar con chrono o como se llame un timer para ver la cantidad de estados explorados Y el tiempo que se demora en ejecutar. Además 
