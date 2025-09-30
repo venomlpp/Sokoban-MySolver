@@ -82,7 +82,6 @@ int SokobanSolver::getHeuristic(State* state) {
                 bestG = g;
             }
         }
-        // Si encontramos un objetivo libre, lo asignamos. Si no (caso raro), usamos bestDist tal cual.
         if (bestG != -1) {
             usedGoal[bestG] = 1;
             greedySum += bestDist;
@@ -195,7 +194,7 @@ bool SokobanSolver::solve() {
             //poda para evitar push-undo
             if (isPush && current->parent != nullptr) {
                 //atención con la condición de las llaves
-                if (sameBoxes(newState, current->parent) && current->currentKey == current->parent->currentKey) {
+                if (sameBoxes(newState, current->parent)) {
                     delete newState;
                     continue;
                 }
