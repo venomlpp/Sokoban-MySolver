@@ -28,6 +28,16 @@ bool Operation::canExecute(const State *s, const Board *board) const {
             for (int j = 0; j < s->numBoxes; ++j) {
                 if (j != i && s->boxX[j] == destX && s->boxY[j] == destY) return false;
             }
+            // chequeo: si la caja está bloqueada, el jugador debe llevar la llave correspondiente
+            char locked = s->lockedBoxesChar[i];
+            if (locked != '\0') {
+                // llave correspondiente es la minúscula del char
+                char needed = (char)(locked - 'A' + 'a'); // restar y sumar ASCII
+                if (s->currentKey != needed) {
+                    // no puede empujar la caja bloqueada sin la llave
+                    return false;
+                }
+            }
             // todo ok para empujar
             return true;
         }
@@ -47,11 +57,49 @@ State *Operation::execute(State *s) const {
     int pushedBoxIndex = -1;
     for (int i = 0; i < newState->numBoxes; i++) {
         if (newState->boxX[i] == newState->x && newState->boxY[i] == newState->y) {
-            newState->boxX[i] += dx;
-            newState->boxY[i] += dy;
             pushedBox = true;
             pushedBoxIndex = i;
+            char locked = newState->lockedBoxesChar[pushedBoxIndex];
+            if (locked == '\0') {
+                newState->boxX[i] += dx;
+                newState->boxY[i] += dy;
+            }
+            if (locked != '\0' && newState->currentKey != 0) {
+                char needed = (char)(locked - 'A' + 'a');
+                if (newState->currentKey == needed) {
+                    newState->lockedBoxesChar[pushedBoxIndex] = '\0'; // desbloqueada
+                    newState->currentKey = 0; // llave consumida
+                    newState->boxX[i] += dx;
+                    newState->boxY[i] += dy;
+                }
+            }
             break; // solo una caja puede estar allí
+        }
+    }
+    if (!pushedBox) {
+        // buscar llave en lista de llaves del estado
+        if (newState->currentKey == 0 && newState->numKeys > 0) {
+            int pickIdx = -1;
+            for (int k = 0; k < newState->numKeys; ++k) {
+                if (newState->keyX[k] == newState->x && newState->keyY[k] == newState->y) { pickIdx = k; break; }
+            }
+            if (pickIdx >= 0) {
+                // recoger llave
+                newState->currentKey = newState->keyChar[pickIdx];
+                // eliminar llave del arreglo (compactar)
+                int nk = newState->numKeys - 1;
+                for (int t = pickIdx; t < nk; ++t) {
+                    newState->keyX[t] = newState->keyX[t+1];
+                    newState->keyY[t] = newState->keyY[t+1];
+                    newState->keyChar[t] = newState->keyChar[t+1];
+                }
+                // reducir numero de llaves
+                if (nk == 0) {
+                    delete[] newState->keyX; delete[] newState->keyY; delete[] newState->keyChar;
+                    newState->keyX = nullptr; newState->keyY = nullptr; newState->keyChar = nullptr;
+                }
+                newState->numKeys = nk;
+            }
         }
     }
 
@@ -60,11 +108,6 @@ State *Operation::execute(State *s) const {
 
     // canonicalizar representación de cajas
     newState->canonicalize();
-
-    /*if (pushedBox) {
-        cout << "EMPUJE: Jugador (" << s->x << "," << s->y << ") -> (" << newState->x << "," << newState->y << ")"
-             << ", Caja " << pushedBoxIndex << " -> (" << newState->boxX[pushedBoxIndex] << "," << newState->boxY[pushedBoxIndex] << ")" << endl;
-    }*/
     return newState;
 }
 

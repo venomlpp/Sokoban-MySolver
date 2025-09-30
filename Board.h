@@ -21,6 +21,10 @@ public:
     int* goalY;         // Coordenadas Y de los objetivos
     int numBoxes;       // Número total de cajas en el nivel
     int currentRow;
+    int numKeysStart;
+    int *keyXStart;
+    int *keyYStart;
+    char *keyCharStart;
 
     // Constructor que carga desde archivo
     Board(const char* filename);
@@ -38,7 +42,8 @@ public:
 
     // Métodos para encontrar elementos iniciales
     void findPlayerStart(int& x, int& y) const;
-    void findBoxesStart(int*& boxX, int*& boxY, int& count) const;
+    void findBoxesStart(int*& boxX, int*& boxY, char*& lockedBoxesChar, int& count) const;
+    void findKeysStart(int*& keyX, int*& keyY, char*& keyChar, int& count) const;
 
 private:
     void loadFromFile(const char* filename);

@@ -8,12 +8,12 @@
 using namespace std;
 
 void testWithFile(const char* filename) {
-    cout << "=== TEST CON ARCHIVO " << filename << " ===" << endl;
+    cout << "=== PRUEBA CON ARCHIVO " << filename << " ===" << endl;
     
     // Verificar que el archivo existe
     ifstream file(filename);
     if (!file.is_open()) {
-        cerr << "❌ Error: No se pudo abrir " << filename << endl;
+        cerr << "Error: No se pudo abrir " << filename << endl;
         cerr << "Asegúrate de que el archivo está en el mismo directorio" << endl;
         return;
     }
@@ -32,21 +32,49 @@ void testWithFile(const char* filename) {
     
     // Encontrar cajas iniciales
     int *boxX, *boxY;
+    char *lockedBoxesChar;
     int numBoxes;
-    board.findBoxesStart(boxX, boxY, numBoxes);
+    board.findBoxesStart(boxX, boxY, lockedBoxesChar, numBoxes);
     cout << "Número de cajas: " << numBoxes << endl;
     for (int i = 0; i < numBoxes; i++) {
         cout << "Caja " << i << ": (" << boxX[i] << ", " << boxY[i] << ")" << endl;
+        if (lockedBoxesChar[i] != '\0') {
+            cout << "  - Bloqueada con: " << lockedBoxesChar[i] << endl;
+        }
     }
-    
+
+    // llaves iniciales
+    int *keyX, *keyY;
+    char *keyChar;
+    int numKeys;
+    board.findKeysStart(keyX, keyY, keyChar, numKeys);
+
+// Mostrar llaves
+    cout << "Número de llaves: " << numKeys << endl;
+    for (int i = 0; i < numKeys; i++) {
+        cout << "Llave " << i << ": (" << keyX[i] << ", " << keyY[i] << ") - " << keyChar[i] << endl;
+    }
+
     // Mostrar objetivos
     cout << "Número de objetivos: " << board.numGoals << endl;
     for (int i = 0; i < board.numGoals; i++) {
         cout << "Objetivo " << i << ": (" << board.goalX[i] << ", " << board.goalY[i] << ")" << endl;
     }
+
+    int boxesLeft = 0;
+    for (int i = 0; i < numBoxes; ++i) {
+        bool onGoal = false;
+        for (int g = 0; g < board.numGoals; ++g)
+            if (boxX[i] == board.goalX[g] && boxY[i] == board.goalY[g]) { onGoal = true; break; }
+        if (!onGoal) boxesLeft++;
+    }
     
     // Crear estado inicial
-    State* initialState = new State(playerX, playerY, boxX, boxY, numBoxes, numBoxes, board.energyLimit);
+    State* initialState = new State(playerX, playerY,
+                                boxX, boxY, lockedBoxesChar, numBoxes, boxesLeft,
+                                keyX, keyY, keyChar, numKeys,
+                                board.energyLimit);
+
     cout << "\nEstado inicial creado:" << endl;
     cout << "- boxesLeft: " << initialState->boxesLeft << endl;
     cout << "- energia: " << initialState->energia << endl;
@@ -59,21 +87,18 @@ void testWithFile(const char* filename) {
     bool solved = solver.solve();
     
     if (solved) {
-        cout << "✅ ¡Solución encontrada!" << endl;
+        cout << "¡Solución encontrada!" << endl;
     } else {
-        cout << "❌ No se encontró solución" << endl;
+        cout << "No se encontró solución" << endl;
     }
     
     // Limpiar memoria
-    delete[] boxX;
-    delete[] boxY;
-    delete initialState;
-    
-    cout << "=== TEST COMPLETADO ===" << endl;
+    delete[] boxX; delete[] boxY; delete[] lockedBoxesChar;
+    delete[] keyX; delete[] keyY; delete[] keyChar;
 }
 
 int main(int argc, char* argv[]) {
-    cout << "🧩 TESTER DE SOKOBAN" << endl;
+    cout << "TESTER DE SOKOBAN" << endl;
     cout << "====================" << endl;
     
     try {
@@ -87,9 +112,9 @@ int main(int argc, char* argv[]) {
             cin.getline(filename, sizeof(filename));
             testWithFile(filename);
         }
-        cout << "\n🎉 TEST COMPLETADO" << endl;
+        cout << "\nTEST FINALIZADO" << endl;
     } catch (const exception& e) {
-        cerr << "❌ Error durante el test: " << e.what() << endl;
+        cerr << "Error durante el test: " << e.what() << endl;
         return 1;
     }
     

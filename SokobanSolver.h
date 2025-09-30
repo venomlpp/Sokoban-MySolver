@@ -16,7 +16,6 @@ public:
     ~SokobanSolver();
 
     bool solve();
-    bool isSolved() const;
     bool isValid(State* state) const;
     
 private:
@@ -35,15 +34,6 @@ private:
     // Métodos auxiliares
     bool isGoalState(State* state);
     int getHeuristic(State* state); // ahora implementa Greedy matching + distancia a caja más cercana
-
-    // Detección de deadlocks simple
-    bool isSimpleDeadlock(State* state, int boxX, int boxY);
-    bool isCornerDeadlock(int x, int y);
-
-    // Utilidades
-    int abs(int x) { return (x < 0) ? -x : x; }
-    int min(int a, int b) { return (a < b) ? a : b; }
-    int max(int a, int b) { return (a > b) ? a : b; }
 };
 
 #endif //SOKOBANSOLVER_H

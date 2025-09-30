@@ -17,21 +17,37 @@ HashTable::~HashTable() {
 }
 
 int HashTable::hashFunction(State* state) {
-    // Mezcla tipo splitmix-ish pero simple; NO incluir energia ni costos.
-    unsigned long long h = 1469598103934665603ULL; // base
+    // splitmix-ish simple, ahora incluyendo lockedBoxesChar, currentKey y llaves
+    unsigned long long h = 1469598103934665603ULL;
     auto mix = [&](int v) {
         unsigned long long x = (unsigned long long)(v + 0x9e3779b97f4a7c15ULL);
         h ^= x + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+    };
+    auto mix_char = [&](char c) {
+        int v = (int)(unsigned char)c;
+        mix(v);
     };
 
     mix(state->x);
     mix(state->y);
     mix(state->numBoxes);
-
-    // Asumimos que state->boxX/Y están canonicalizadas (ordenadas).
+    mix(state->boxesLeft);
+    // mezclar cajas (suponiendo canonicalizadas)
     for (int i = 0; i < state->numBoxes; ++i) {
         mix(state->boxX[i]);
         mix(state->boxY[i]);
+        mix_char(state->lockedBoxesChar ? state->lockedBoxesChar[i] : '\0');
+    }
+
+    // mezclar llave que lleva el jugador
+    mix_char(state->currentKey ? state->currentKey : '\0');
+
+    // mezclar llaves en suelo
+    mix(state->numKeys);
+    for (int k = 0; k < state->numKeys; ++k) {
+        mix(state->keyX[k]);
+        mix(state->keyY[k]);
+        mix_char(state->keyChar[k]);
     }
 
     int idx = (int)((h & 0x7fffffffffffffffULL) % (unsigned long long)capacity);
@@ -74,9 +90,7 @@ void HashTable::rehash() {
     table = newTable;
     maxChainLength = newMaxChainLength;
     rehashCount++;
-
-    cout << "Rehashing #" << rehashCount << " realizado. Nueva capacidad: " << capacity << endl;
-}
+  }
 
 void HashTable::insert(State* state) {
     totalInsertions++;
