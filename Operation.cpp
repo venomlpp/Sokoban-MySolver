@@ -28,7 +28,7 @@ bool Operation::canExecute(const State *s, const Board *board) const {
             for (int j = 0; j < s->numBoxes; ++j) {
                 if (j != i && s->boxX[j] == destX && s->boxY[j] == destY) return false;
             }
-            // chequeo: si la caja está bloqueada, el jugador debe llevar la llave correspondiente
+            // si la caja está bloqueada, el jugador debe llevar la llave correspondiente
             char locked = s->lockedBoxesChar[i];
             if (locked != '\0') {
                 // llave correspondiente es la minúscula del char

@@ -1,6 +1,6 @@
 #include "Board.h"
 
-
+// constructor
 Board::Board(const char* filename) 
     : width(0), height(0), energyLimit(0), moveCost(1), pushCost(2), 
       grid(nullptr), numGoals(0), goalX(nullptr), goalY(nullptr),
@@ -10,6 +10,7 @@ Board::Board(const char* filename)
     loadFromFile(filename);
 }
 
+// destructor
 Board::~Board() {
     if (grid != nullptr) {
         for (int i = 0; i < height; i++) delete[] grid[i];
@@ -22,6 +23,7 @@ Board::~Board() {
     delete[] keyCharStart;
 }
 
+// cargado de archivo
 void Board::loadFromFile(const char* filename) {
     ifstream file(filename);
     if (!file.is_open()) {
@@ -56,6 +58,7 @@ void Board::loadFromFile(const char* filename) {
     countGoalsAndBoxes();
 }
 
+// parseado de seccion META
 void Board::parseMetaSection(string line) {
     stringstream ss(line);
     string key;
@@ -82,6 +85,7 @@ void Board::parseMetaSection(string line) {
     }
 }
 
+// parseado de seccion BOARD
 void Board::parseBoardSection(string line) {
     // Inicializar grid si es necesario
     if (grid == nullptr) {
@@ -101,9 +105,8 @@ void Board::parseBoardSection(string line) {
     }
 }
 
-
+// contar objetivos, cajas y llaves iniciales
 void Board::countGoalsAndBoxes() {
-    // contar objetivos, cajas (incluye mayusculas) y llaves iniciales (minusculas)
     numGoals = 0;
     numBoxes = 0;
     numKeysStart = 0;
@@ -144,6 +147,7 @@ void Board::countGoalsAndBoxes() {
     }
 }
 
+// métodos de consulta varios
 bool Board::isWall(int x, int y) const {
     if (!isValidPosition(x, y)) return true;
     return grid[x][y] == '#';
@@ -163,6 +167,7 @@ char Board::getCell(int x, int y) const {
     return grid[x][y];
 }
 
+// impresión de info y tablero
 void Board::printInfo() const {
     cout << "=== TABLERO ===" << endl;
     cout << "Dimensiones: " << width << "x" << height << endl;
@@ -181,6 +186,7 @@ void Board::printBoard() const {
     }
 }
 
+// métodos para encontrar elementos iniciales
 void Board::findPlayerStart(int& x, int& y) const {
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {

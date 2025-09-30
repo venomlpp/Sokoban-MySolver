@@ -17,7 +17,6 @@ HashTable::~HashTable() {
 }
 
 int HashTable::hashFunction(State* state) {
-    // splitmix-ish simple, ahora incluyendo lockedBoxesChar, currentKey y llaves
     unsigned long long h = 1469598103934665603ULL;
     auto mix = [&](int v) {
         unsigned long long x = (unsigned long long)(v + 0x9e3779b97f4a7c15ULL);

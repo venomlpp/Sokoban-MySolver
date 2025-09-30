@@ -1,0 +1,14 @@
+[META]
+NAME = MINI
+WIDTH = 5
+HEIGHT = 5
+ENERGY_LIMIT = 100
+MOVE_COST = 1
+PUSH_COST = 1
+
+[BOARD]
+#####
+# @ #
+# $ #
+# . #
+#####

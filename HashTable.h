@@ -26,10 +26,10 @@ private:
 public:
     HashTable(int initialCapacity = 1000, double loadFactorThreshold = 0.75);
     ~HashTable();
-
     void insert(State* state);
     bool contains(State* state);
     
+    // getters
     int getSize() const { return size; }
     double getLoadFactorThreshold() const { return loadFactorThreshold; }
     int getCapacity() const { return capacity; }

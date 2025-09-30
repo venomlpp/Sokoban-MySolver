@@ -1,14 +1,12 @@
 #include "Heap.h"
 
 Heap::Heap() {
-//    cout << "Llamada al constructor sin argumentos" << endl;
     maxsize = 100; // tamaño inicial
     size = 0; // tamaño actual
     heap = new State*[maxsize]; // crea el arreglo de punteros a State
 }
 
 Heap::Heap(int maxsize) {
-//    cout << "Llamada al constructor con argumentos" << endl;
     this->maxsize = maxsize; // tamaño inicial
     size = 0; // tamaño actual
     heap = new State*[maxsize]; // crea el arreglo de punteros a State

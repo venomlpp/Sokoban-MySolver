@@ -14,8 +14,6 @@ public:
     bool isPush(const State *s) const;
     bool isPushedToGoal(const State *s, const Board *board) const;
     bool isPushedOutOfGoal(const State *s, const Board *board) const;
-
-    // Nuevo: verifica si la operacion es ejecutable
     bool canExecute(const State *s, const Board *board) const;
 };
 

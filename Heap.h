@@ -9,8 +9,8 @@ using namespace std;
 class Heap {
     public:
     State **heap; // Arreglo de puntero a State
-    int maxsize; // tamaño maximo inicial/actual de arreglo
-    int size; // cantidad de elementos en el heap
+    int maxsize;
+    int size;
     
     Heap();
     Heap(int maxsize);
@@ -18,7 +18,6 @@ class Heap {
 
     State * pop(); // saca la raiz y si esta vacio retorna nulo
     void push(State *s); // agrega un elemento a la pila y autoincrementa si es necesario
-    void print(); // esto imprime <- mal comentario
     bool isEmpty();
 
     void bubbleDown(int index); // sirve para arreglar el arbol y mantener como menor al padre desde indice i

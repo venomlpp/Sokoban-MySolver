@@ -23,7 +23,7 @@ private:
     Heap* openList; // Estados por explorar
     HashTable* closedList; // Estados ya explorados
 
-    // OPERACIONES: dx = cambio fila, dy = cambio columna
+    // dx = cambio fila, dy = cambio columna
     Operation operations[4] = {
         Operation(-1, 0), // Up
         Operation( 1, 0), // Down
@@ -33,7 +33,7 @@ private:
 
     // Métodos auxiliares
     bool isGoalState(State* state);
-    int getHeuristic(State* state); // ahora implementa Greedy matching + distancia a caja más cercana
+    int getHeuristic(State* state);
 };
 
-#endif //SOKOBANSOLVER_H
+#endif

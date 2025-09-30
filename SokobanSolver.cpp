@@ -12,7 +12,7 @@ static bool sameBoxes(const State* a, const State* b) {
     return true;
 }
 
-// Constructor / destructor
+// constructor
 SokobanSolver::SokobanSolver(State* initialState, Board* board) {
     this->board = board;
     openList = new Heap(1000);
@@ -23,15 +23,18 @@ SokobanSolver::SokobanSolver(State* initialState, Board* board) {
     openList->push(initialState);
 }
 
+// destructor
 SokobanSolver::~SokobanSolver() {
     delete openList;
     delete closedList;
 }
 
+// condicion final
 bool SokobanSolver::isGoalState(State* state) {
     return state->boxesLeft == 0;
 }
 
+// verificacion validez estado
 bool SokobanSolver::isValid(State* state) const {
     if (!board->isValidPosition(state->x, state->y) || board->isWall(state->x, state->y)) return false;
     for (int i=0;i<state->numBoxes;i++) {
@@ -45,8 +48,8 @@ bool SokobanSolver::isValid(State* state) const {
     return true;
 }
 
+// heuristica: suma de (distancia caja-objetivo más cercano) + (distancia jugador-caja más cercana) + (distancia jugador-llave necesaria más cercana)
 int SokobanSolver::getHeuristic(State* state) {
-    // Si ya no quedan cajas por colocar, heurística 0
     if (state->boxesLeft == 0) return 0;
 
     int nBoxes = state->numBoxes;
@@ -58,9 +61,8 @@ int SokobanSolver::getHeuristic(State* state) {
 
     int greedySum = 0;
 
-    // Por cada caja que NO esté ya en un goal, asignarle su goal libre más cercano (greedy)
+    // Por cada caja que NO este ya en un goal, asignarle su goal libre más cercano
     for (int i = 0; i < nBoxes; ++i) {
-        // comprobar si esta caja ya está en un objetivo
         bool onGoal = false;
         for (int g = 0; g < nGoals; ++g) {
             if (state->boxX[i] == board->goalX[g] && state->boxY[i] == board->goalY[g]) {
@@ -107,7 +109,7 @@ int SokobanSolver::getHeuristic(State* state) {
     // Para cada caja bloqueada que no esté en goal
     for (int i = 0; i < nBoxes; ++i) {
         if (state->lockedBoxesChar[i] == '\0') continue;
-        // si la caja ya está en goal -> ignorar
+        // si la caja ya está en goal, ignorar
         bool onGoal = false;
         for (int g = 0; g < nGoals; ++g) {
             if (state->boxX[i] == board->goalX[g] && state->boxY[i] == board->goalY[g]) { onGoal = true; break; }
@@ -128,13 +130,13 @@ int SokobanSolver::getHeuristic(State* state) {
 
     delete[] usedGoal;
 
-    // Combinar con los costos reales del tablero -> sigue siendo un lower bound/admisible
     int h_pushes = greedySum * board->pushCost;
     int h_player = minPlayerToBox * board->moveCost;
     int h_key = minPlayerToNeededKey * board->moveCost;
     return h_pushes + h_player + h_key;
 }
 
+// solver del sokoban, A* search con poda push-undo y heuristica
 bool SokobanSolver::solve() {
     int statesExplored = 0;
     clock_t start = clock();

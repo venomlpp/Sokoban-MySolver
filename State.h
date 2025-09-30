@@ -18,7 +18,7 @@ public:
     int numBoxes;
     int boxesLeft;
 
-    //latest: llaves
+    //llaves
     int *keyX;
     int *keyY;
     char *keyChar;
@@ -41,7 +41,7 @@ public:
 
     int getHeuristic(State *state) const;
 
-    // NUEVO: ordena las cajas por (x,y) para una representación canónica
+    // ordena cajas y llaves
     void canonicalize();
 };
 

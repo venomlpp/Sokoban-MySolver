@@ -1,6 +1,7 @@
 #include "State.h"
 #include <cstring>
 
+// constructor sin llaves
 State::State(int x, int y, int *boxX, int *boxY, int numBoxes, int boxesLeft, int energia) {
     this->x = x;
     this->y = y;
@@ -21,6 +22,7 @@ State::State(int x, int y, int *boxX, int *boxY, int numBoxes, int boxesLeft, in
     canonicalize();
 }
 
+// constructor con llaves
 State::State(int x, int y, int *boxX, int *boxY, char *lockedBoxesChar, int numBoxes, 
         int boxesLeft, int *keyX, int *keyY, char *keyChar, int numKeys, int energia) {
     this->x = x;
@@ -60,6 +62,7 @@ State::State(int x, int y, int *boxX, int *boxY, char *lockedBoxesChar, int numB
     canonicalize();
 }
 
+// destructor
 State::~State() {
     delete[] boxX;
     delete[] boxY;
@@ -68,7 +71,7 @@ State::~State() {
     delete[] keyY;
     delete[] keyChar;
 }
-
+// constructor copia
 State::State(const State &other) {
     x = other.x;
     y = other.y;
@@ -107,11 +110,13 @@ State::State(const State &other) {
     currentKey = other.currentKey;
 }
 
+// clonacion estado
 State *State::clone() {
     return new State(*this);
 }
 
-void State::canonicalize() { //ahora incluye llaves y cajas bloqueadas
+// ordena cajas y llaves
+void State::canonicalize() { 
     // ordena cajas por (x,y) y mantiene lockedBoxesChar emparejado
     for (int i = 0; i < numBoxes; ++i) {
         int best = i;
@@ -142,6 +147,7 @@ void State::canonicalize() { //ahora incluye llaves y cajas bloqueadas
     }
 }
 
+// compara igualdad de estados (ignorando energia, costo, heuristic, f_cost, parent, lastMove)
 bool State::equals(const State* other) const {
     if (x != other->x || y != other->y) return false;
     if (numBoxes != other->numBoxes) return false;
@@ -158,6 +164,7 @@ bool State::equals(const State* other) const {
     return true;
 }
 
+// impresión estado (para debug, no usado en tests)
 void State::printState() const {
     cout << "Posicion jugador: (" << x << ", " << y << "), ";
     cout << "Energia: " << energia << ", Lleva llave: " << (currentKey ? currentKey : '-') << "\n";
